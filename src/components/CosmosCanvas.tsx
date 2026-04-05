@@ -25,7 +25,6 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
   const otherUsersRef = useRef<CosmosUser[]>(otherUsers);
   const graphicsRef = useRef<PIXI.Graphics | null>(null);
 
-  // Keep ref in sync
   otherUsersRef.current = otherUsers;
 
   const drawScene = useCallback(() => {
@@ -35,13 +34,13 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
 
     const cam = cameraRef.current;
     const me = myPosRef.current;
+    const app = appRef.current!;
 
-    // Draw grid
-    gfx.lineStyle(1, 0x1a1a3e, 0.3);
+    // Grid — light soft lines
+    gfx.lineStyle(1, 0xd4e5f0, 0.5);
     const gridSize = 80;
     const startX = -(cam.x % gridSize);
     const startY = -(cam.y % gridSize);
-    const app = appRef.current!;
     for (let x = startX; x < app.screen.width; x += gridSize) {
       gfx.moveTo(x, 0);
       gfx.lineTo(x, app.screen.height);
@@ -51,53 +50,61 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
       gfx.lineTo(app.screen.width, y);
     }
 
-    // Draw world border
-    gfx.lineStyle(2, 0x8b5cf6, 0.4);
+    // World border
+    gfx.lineStyle(2, 0x0ea5e9, 0.25);
     gfx.drawRect(-cam.x, -cam.y, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // Draw other users
+    const msx = me.x - cam.x;
+    const msy = me.y - cam.y;
+
+    // Other users
     for (const user of otherUsersRef.current) {
       const sx = user.x - cam.x;
       const sy = user.y - cam.y;
       const nearby = isNearby({ ...myUser, x: me.x, y: me.y }, user);
 
-      // Proximity radius indicator (faint)
+      // Connection line
       if (nearby) {
-        gfx.lineStyle(1, 0x34d399, 0.15);
+        gfx.lineStyle(1.5, 0x0ea5e9, 0.2);
+        gfx.moveTo(msx, msy);
+        gfx.lineTo(sx, sy);
+
+        // Proximity circle
+        gfx.lineStyle(1, 0x22c55e, 0.12);
         gfx.drawCircle(sx, sy, PROXIMITY_RADIUS);
       }
 
-      // Glow
+      // Shadow
       gfx.lineStyle(0);
-      gfx.beginFill(user.color, nearby ? 0.2 : 0.08);
-      gfx.drawCircle(sx, sy, AVATAR_RADIUS + 10);
+      gfx.beginFill(0x000000, 0.04);
+      gfx.drawCircle(sx + 2, sy + 2, AVATAR_RADIUS);
       gfx.endFill();
 
-      // Avatar
-      gfx.beginFill(user.color, nearby ? 1 : 0.7);
+      // Avatar body
+      gfx.beginFill(user.color, nearby ? 0.95 : 0.6);
       gfx.drawCircle(sx, sy, AVATAR_RADIUS);
       gfx.endFill();
 
-      // Connection line
+      // Highlight
+      gfx.beginFill(0xffffff, 0.25);
+      gfx.drawCircle(sx - 5, sy - 6, 5);
+      gfx.endFill();
+
+      // Active ring for nearby
       if (nearby) {
-        const msx = me.x - cam.x;
-        const msy = me.y - cam.y;
-        gfx.lineStyle(1, 0x34d399, 0.3);
-        gfx.moveTo(msx, msy);
-        gfx.lineTo(sx, sy);
+        gfx.lineStyle(2, 0x22c55e, 0.5);
+        gfx.drawCircle(sx, sy, AVATAR_RADIUS + 4);
       }
     }
 
-    // Draw my proximity radius
-    const msx = me.x - cam.x;
-    const msy = me.y - cam.y;
-    gfx.lineStyle(1, 0x8b5cf6, 0.15);
+    // My proximity radius
+    gfx.lineStyle(1, 0x0ea5e9, 0.1);
     gfx.drawCircle(msx, msy, PROXIMITY_RADIUS);
 
-    // My glow
+    // My shadow
     gfx.lineStyle(0);
-    gfx.beginFill(myUser.color, 0.2);
-    gfx.drawCircle(msx, msy, AVATAR_RADIUS + 10);
+    gfx.beginFill(0x000000, 0.06);
+    gfx.drawCircle(msx + 2, msy + 2, AVATAR_RADIUS);
     gfx.endFill();
 
     // My avatar
@@ -105,10 +112,14 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
     gfx.drawCircle(msx, msy, AVATAR_RADIUS);
     gfx.endFill();
 
-    // Inner highlight
-    gfx.beginFill(0xffffff, 0.15);
-    gfx.drawCircle(msx - 5, msy - 5, 6);
+    // My highlight
+    gfx.beginFill(0xffffff, 0.3);
+    gfx.drawCircle(msx - 5, msy - 6, 5);
     gfx.endFill();
+
+    // My ring
+    gfx.lineStyle(2, 0x0ea5e9, 0.4);
+    gfx.drawCircle(msx, msy, AVATAR_RADIUS + 4);
   }, [myUser]);
 
   useEffect(() => {
@@ -116,7 +127,7 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
 
     const app = new PIXI.Application({
       resizeTo: containerRef.current,
-      backgroundColor: 0x0b0f1a,
+      backgroundColor: 0xf5f9fc,
       antialias: true,
     });
     containerRef.current.appendChild(app.view as HTMLCanvasElement);
@@ -126,23 +137,11 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
     app.stage.addChild(gfx);
     graphicsRef.current = gfx;
 
-    // Username texts container
     const textContainer = new PIXI.Container();
     app.stage.addChild(textContainer);
 
-    // Stars
-    const starGfx = new PIXI.Graphics();
-    app.stage.addChildAt(starGfx, 0);
-    const stars = Array.from({ length: 200 }, () => ({
-      x: Math.random() * WORLD_WIDTH,
-      y: Math.random() * WORLD_HEIGHT,
-      size: Math.random() * 2 + 0.5,
-      alpha: Math.random() * 0.5 + 0.2,
-    }));
-
-    // Throttle position updates
     let lastEmit = 0;
-    const EMIT_INTERVAL = 50; // ms
+    const EMIT_INTERVAL = 50;
 
     const ticker = () => {
       const keys = keysRef.current;
@@ -154,7 +153,6 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
       if (keys.has("d") || keys.has("arrowright")) dx += MOVE_SPEED;
 
       if (dx !== 0 || dy !== 0) {
-        // Normalize diagonal
         if (dx !== 0 && dy !== 0) {
           dx *= 0.707;
           dy *= 0.707;
@@ -170,51 +168,41 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
         }
       }
 
-      // Camera follows player
       cameraRef.current = {
         x: myPosRef.current.x - app.screen.width / 2,
         y: myPosRef.current.y - app.screen.height / 2,
       };
 
-      // Draw stars
-      starGfx.clear();
-      const cam = cameraRef.current;
-      for (const star of stars) {
-        const sx = star.x - cam.x * 0.3; // parallax
-        const sy = star.y - cam.y * 0.3;
-        if (sx > -10 && sx < app.screen.width + 10 && sy > -10 && sy < app.screen.height + 10) {
-          starGfx.beginFill(0xffffff, star.alpha);
-          starGfx.drawCircle(sx, sy, star.size);
-          starGfx.endFill();
-        }
-      }
-
       drawScene();
 
-      // Username labels
+      // Labels
+      const cam = cameraRef.current;
       textContainer.removeChildren();
-      // My name
+
       const myLabel = new PIXI.Text(myUser.username, {
-        fontSize: 12,
-        fill: 0xffffff,
-        fontFamily: "Inter, sans-serif",
+        fontSize: 11,
+        fontWeight: "600",
+        fill: 0x1e3a4f,
+        fontFamily: "Inter, system-ui, sans-serif",
         align: "center",
       });
       myLabel.anchor.set(0.5);
       myLabel.x = myPosRef.current.x - cam.x;
-      myLabel.y = myPosRef.current.y - cam.y - AVATAR_RADIUS - 12;
+      myLabel.y = myPosRef.current.y - cam.y - AVATAR_RADIUS - 14;
       textContainer.addChild(myLabel);
 
       for (const user of otherUsersRef.current) {
+        const nearby = isNearby({ ...myUser, x: myPosRef.current.x, y: myPosRef.current.y }, user);
         const label = new PIXI.Text(user.username, {
-          fontSize: 12,
-          fill: isNearby({ ...myUser, x: myPosRef.current.x, y: myPosRef.current.y }, user) ? 0x34d399 : 0x999999,
-          fontFamily: "Inter, sans-serif",
+          fontSize: 11,
+          fontWeight: nearby ? "600" : "400",
+          fill: nearby ? 0x166534 : 0x6b7280,
+          fontFamily: "Inter, system-ui, sans-serif",
           align: "center",
         });
         label.anchor.set(0.5);
         label.x = user.x - cam.x;
-        label.y = user.y - cam.y - AVATAR_RADIUS - 12;
+        label.y = user.y - cam.y - AVATAR_RADIUS - 14;
         textContainer.addChild(label);
       }
     };
@@ -222,8 +210,7 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
     app.ticker.add(ticker);
 
     const onKeyDown = (e: KeyboardEvent) => {
-      // Don't capture keys when typing in chat
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       keysRef.current.add(e.key.toLowerCase());
     };
     const onKeyUp = (e: KeyboardEvent) => {
