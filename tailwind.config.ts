@@ -47,6 +47,13 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        cosmos: {
+          glow: "hsl(var(--cosmos-glow))",
+          nebula: "hsl(var(--cosmos-nebula))",
+          star: "hsl(var(--cosmos-star))",
+          nearby: "hsl(var(--cosmos-nearby))",
+          "chat-bg": "hsl(var(--cosmos-chat-bg))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -80,10 +87,20 @@ export default {
             height: "0",
           },
         },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "0.6" },
+          "50%": { opacity: "1" },
+        },
+        "slide-in": {
+          from: { transform: "translateX(100%)", opacity: "0" },
+          to: { transform: "translateX(0)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "slide-in": "slide-in 0.3s ease-out",
       },
     },
   },
