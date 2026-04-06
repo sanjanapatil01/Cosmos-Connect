@@ -88,7 +88,7 @@ export function useCosmosChannel({ username }: UseCosmosChannelOptions) {
   );
 
   const sendMessage = useCallback(
-    (text: string) => {
+    (text: string, imageUrl?: string) => {
       if (!channelRef.current || !myUserRef.current) return;
       const msg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -96,13 +96,13 @@ export function useCosmosChannel({ username }: UseCosmosChannelOptions) {
         senderName: myUserRef.current.username,
         text,
         timestamp: Date.now(),
+        imageUrl,
       };
       channelRef.current.send({
         type: "broadcast",
         event: "chat",
         payload: msg,
       });
-      // Also add locally
       setMessages((prev) => [...prev.slice(-99), msg]);
     },
     []
