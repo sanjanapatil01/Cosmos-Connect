@@ -7,6 +7,9 @@ Virtual Cosmos is a 2D real-time virtual environment where users can move around
 This project simulates real-world spatial interaction in a shared virtual space using real-time communication.
 
 ---
+## Live Demo
+
+[Watch Demo Video](https://drive.google.com/file/d/1BWjLbHYB3tX9Z_ee8E4JPaN13SHJvxq-/view?usp=sharing)
 
 ## Features
 
