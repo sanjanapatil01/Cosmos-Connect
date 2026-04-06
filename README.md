@@ -211,37 +211,8 @@ users = {
 * Efficient rendering
 * Client-side proximity detection
 
----
 
-## Limitations
 
-* No database (in-memory only)
-* No authentication
-* Limited scalability
-* No reconnection handling
-
----
-
-## Future Improvements
-
-### Scalability
-
-* Redis for distributed state
-* Socket.IO for rooms & reconnection
-* Load balancing
-
-### Features
-
-* Voice chat (WebRTC)
-* Group chat
-* Avatar customization
-* Zoom & pan canvas
-* Mobile support
-
-### Performance
-
-* QuadTree for efficient proximity detection
-* Delta updates instead of full sync
 
 ---
 
