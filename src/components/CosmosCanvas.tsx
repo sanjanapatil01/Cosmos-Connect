@@ -36,26 +36,51 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
     const me = myPosRef.current;
     const app = appRef.current!;
 
-    // Grid — light soft lines
-    gfx.lineStyle(1, 0xd4e5f0, 0.5);
-    const gridSize = 80;
-    const startX = -(cam.x % gridSize);
-    const startY = -(cam.y % gridSize);
+    // Warm tile grid (like SpatialChat floor)
+    const gridSize = 64;
+    const startX = Math.floor(cam.x / gridSize) * gridSize - cam.x;
+    const startY = Math.floor(cam.y / gridSize) * gridSize - cam.y;
+
     for (let x = startX; x < app.screen.width; x += gridSize) {
-      gfx.moveTo(x, 0);
-      gfx.lineTo(x, app.screen.height);
+      for (let y = startY; y < app.screen.height; y += gridSize) {
+        const worldX = x + cam.x;
+        const worldY = y + cam.y;
+        const checker = (Math.floor(worldX / gridSize) + Math.floor(worldY / gridSize)) % 2 === 0;
+        gfx.beginFill(checker ? 0xf0e6d3 : 0xe8dcc8, 1);
+        gfx.drawRect(x, y, gridSize, gridSize);
+        gfx.endFill();
+      }
     }
-    for (let y = startY; y < app.screen.height; y += gridSize) {
-      gfx.moveTo(0, y);
-      gfx.lineTo(app.screen.width, y);
+
+    // Room labels
+    const rooms = [
+      { x: 400, y: 300, label: "Room 1", w: 500, h: 350 },
+      { x: 1200, y: 300, label: "Room 2", w: 500, h: 350 },
+    ];
+    for (const room of rooms) {
+      const rx = room.x - cam.x;
+      const ry = room.y - cam.y;
+      gfx.beginFill(0x00000, 0.03);
+      gfx.drawRoundedRect(rx, ry, room.w, room.h, 16);
+      gfx.endFill();
+      gfx.lineStyle(1.5, 0xc4a882, 0.4);
+      gfx.drawRoundedRect(rx, ry, room.w, room.h, 16);
     }
 
     // World border
-    gfx.lineStyle(2, 0x0ea5e9, 0.25);
+    gfx.lineStyle(3, 0xc4a882, 0.3);
     gfx.drawRect(-cam.x, -cam.y, WORLD_WIDTH, WORLD_HEIGHT);
 
     const msx = me.x - cam.x;
     const msy = me.y - cam.y;
+
+    // Proximity zone (soft bubble around my user)
+    gfx.lineStyle(0);
+    gfx.beginFill(0x87ceeb, 0.04);
+    gfx.drawCircle(msx, msy, PROXIMITY_RADIUS);
+    gfx.endFill();
+    gfx.lineStyle(1.5, 0x87ceeb, 0.15);
+    gfx.drawCircle(msx, msy, PROXIMITY_RADIUS);
 
     // Other users
     for (const user of otherUsersRef.current) {
@@ -63,48 +88,57 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
       const sy = user.y - cam.y;
       const nearby = isNearby({ ...myUser, x: me.x, y: me.y }, user);
 
-      // Connection line
       if (nearby) {
-        gfx.lineStyle(1.5, 0x0ea5e9, 0.2);
-        gfx.moveTo(msx, msy);
-        gfx.lineTo(sx, sy);
-
-        // Proximity circle
-        gfx.lineStyle(1, 0x22c55e, 0.12);
-        gfx.drawCircle(sx, sy, PROXIMITY_RADIUS);
+        // Connection bubble
+        const cx = (msx + sx) / 2;
+        const cy = (msy + sy) / 2;
+        const dist = Math.sqrt((sx - msx) ** 2 + (sy - msy) ** 2);
+        gfx.lineStyle(0);
+        gfx.beginFill(0xffffff, 0.35);
+        gfx.drawRoundedRect(
+          Math.min(msx, sx) - 40, Math.min(msy, sy) - 50,
+          Math.abs(sx - msx) + 80, Math.abs(sy - msy) + 100,
+          24
+        );
+        gfx.endFill();
+        gfx.lineStyle(1, 0xc4a882, 0.3);
+        gfx.drawRoundedRect(
+          Math.min(msx, sx) - 40, Math.min(msy, sy) - 50,
+          Math.abs(sx - msx) + 80, Math.abs(sy - msy) + 100,
+          24
+        );
       }
 
-      // Shadow
+      // Avatar shadow
       gfx.lineStyle(0);
-      gfx.beginFill(0x000000, 0.04);
-      gfx.drawCircle(sx + 2, sy + 2, AVATAR_RADIUS);
+      gfx.beginFill(0x000000, 0.08);
+      gfx.drawEllipse(sx, sy + AVATAR_RADIUS + 4, AVATAR_RADIUS * 0.8, 4);
       gfx.endFill();
 
       // Avatar body
-      gfx.beginFill(user.color, nearby ? 0.95 : 0.6);
+      gfx.beginFill(user.color, nearby ? 1 : 0.7);
       gfx.drawCircle(sx, sy, AVATAR_RADIUS);
       gfx.endFill();
 
-      // Highlight
-      gfx.beginFill(0xffffff, 0.25);
-      gfx.drawCircle(sx - 5, sy - 6, 5);
+      // Avatar highlight
+      gfx.beginFill(0xffffff, 0.3);
+      gfx.drawCircle(sx - 5, sy - 6, 6);
       gfx.endFill();
 
-      // Active ring for nearby
+      // Status dot
       if (nearby) {
-        gfx.lineStyle(2, 0x22c55e, 0.5);
-        gfx.drawCircle(sx, sy, AVATAR_RADIUS + 4);
+        gfx.beginFill(0x22c55e, 1);
+        gfx.drawCircle(sx + AVATAR_RADIUS - 2, sy + AVATAR_RADIUS - 2, 4);
+        gfx.endFill();
+        gfx.lineStyle(1.5, 0xffffff, 1);
+        gfx.drawCircle(sx + AVATAR_RADIUS - 2, sy + AVATAR_RADIUS - 2, 4);
       }
     }
 
-    // My proximity radius
-    gfx.lineStyle(1, 0x0ea5e9, 0.1);
-    gfx.drawCircle(msx, msy, PROXIMITY_RADIUS);
-
     // My shadow
     gfx.lineStyle(0);
-    gfx.beginFill(0x000000, 0.06);
-    gfx.drawCircle(msx + 2, msy + 2, AVATAR_RADIUS);
+    gfx.beginFill(0x000000, 0.1);
+    gfx.drawEllipse(msx, msy + AVATAR_RADIUS + 4, AVATAR_RADIUS * 0.8, 4);
     gfx.endFill();
 
     // My avatar
@@ -113,13 +147,16 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
     gfx.endFill();
 
     // My highlight
-    gfx.beginFill(0xffffff, 0.3);
-    gfx.drawCircle(msx - 5, msy - 6, 5);
+    gfx.beginFill(0xffffff, 0.35);
+    gfx.drawCircle(msx - 5, msy - 6, 6);
     gfx.endFill();
 
-    // My ring
-    gfx.lineStyle(2, 0x0ea5e9, 0.4);
-    gfx.drawCircle(msx, msy, AVATAR_RADIUS + 4);
+    // My status dot (green = online)
+    gfx.beginFill(0x22c55e, 1);
+    gfx.drawCircle(msx + AVATAR_RADIUS - 2, msy + AVATAR_RADIUS - 2, 4);
+    gfx.endFill();
+    gfx.lineStyle(1.5, 0xffffff, 1);
+    gfx.drawCircle(msx + AVATAR_RADIUS - 2, msy + AVATAR_RADIUS - 2, 4);
   }, [myUser]);
 
   useEffect(() => {
@@ -127,7 +164,7 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
 
     const app = new PIXI.Application({
       resizeTo: containerRef.current,
-      backgroundColor: 0xf5f9fc,
+      backgroundColor: 0xf0e6d3,
       antialias: true,
     });
     containerRef.current.appendChild(app.view as HTMLCanvasElement);
@@ -179,31 +216,61 @@ export function CosmosCanvas({ myUser, otherUsers, onMove }: CosmosCanvasProps) 
       const cam = cameraRef.current;
       textContainer.removeChildren();
 
+      // Room labels
+      const rooms = [
+        { x: 650, y: 620, label: "💬 Room 1" },
+        { x: 1450, y: 620, label: "💬 Room 2" },
+      ];
+      for (const room of rooms) {
+        const label = new PIXI.Text(room.label, {
+          fontSize: 12,
+          fontWeight: "600",
+          fill: 0x8b7355,
+          fontFamily: "Inter, system-ui, sans-serif",
+        });
+        label.anchor.set(0.5);
+        label.x = room.x - cam.x;
+        label.y = room.y - cam.y;
+        textContainer.addChild(label);
+      }
+
+      // My label
       const myLabel = new PIXI.Text(myUser.username, {
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: "600",
-        fill: 0x1e3a4f,
+        fill: 0x3d2b1f,
         fontFamily: "Inter, system-ui, sans-serif",
         align: "center",
       });
       myLabel.anchor.set(0.5);
       myLabel.x = myPosRef.current.x - cam.x;
-      myLabel.y = myPosRef.current.y - cam.y - AVATAR_RADIUS - 14;
+      myLabel.y = myPosRef.current.y - cam.y - AVATAR_RADIUS - 16;
       textContainer.addChild(myLabel);
 
       for (const user of otherUsersRef.current) {
         const nearby = isNearby({ ...myUser, x: myPosRef.current.x, y: myPosRef.current.y }, user);
         const label = new PIXI.Text(user.username, {
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: nearby ? "600" : "400",
-          fill: nearby ? 0x166534 : 0x6b7280,
+          fill: nearby ? 0x3d2b1f : 0x8b7355,
           fontFamily: "Inter, system-ui, sans-serif",
           align: "center",
         });
         label.anchor.set(0.5);
         label.x = user.x - cam.x;
-        label.y = user.y - cam.y - AVATAR_RADIUS - 14;
+        label.y = user.y - cam.y - AVATAR_RADIUS - 16;
         textContainer.addChild(label);
+
+        // Nearby status dot colors next to name
+        if (nearby) {
+          const dot = new PIXI.Graphics();
+          dot.beginFill(0x22c55e, 1);
+          dot.drawCircle(0, 0, 3);
+          dot.endFill();
+          dot.x = user.x - cam.x - label.width / 2 - 8;
+          dot.y = user.y - cam.y - AVATAR_RADIUS - 16;
+          textContainer.addChild(dot);
+        }
       }
     };
 

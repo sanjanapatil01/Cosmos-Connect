@@ -9,7 +9,7 @@ export const WORLD_HEIGHT = 2000;
 export const MOVE_SPEED = 4;
 
 // Avatar radius
-export const AVATAR_RADIUS = 20;
+export const AVATAR_RADIUS = 22;
 
 export interface CosmosUser {
   id: string;
@@ -25,6 +25,7 @@ export interface ChatMessage {
   senderName: string;
   text: string;
   timestamp: number;
+  imageUrl?: string;
 }
 
 /** Euclidean distance between two points */
@@ -45,8 +46,8 @@ export function getNearbyUsers(user: CosmosUser, allUsers: CosmosUser[]): Cosmos
 /** Generate a random spawn position */
 export function randomSpawn(): { x: number; y: number } {
   return {
-    x: Math.floor(Math.random() * (WORLD_WIDTH - 200)) + 100,
-    y: Math.floor(Math.random() * (WORLD_HEIGHT - 200)) + 100,
+    x: Math.floor(Math.random() * (WORLD_WIDTH - 400)) + 200,
+    y: Math.floor(Math.random() * (WORLD_HEIGHT - 400)) + 200,
   };
 }
 
