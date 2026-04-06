@@ -14,6 +14,8 @@ export function LeftSidebar({ users, myUser, onClose }: LeftSidebarProps) {
   const [roomsOpen, setRoomsOpen] = useState(true);
   const [channelsOpen, setChannelsOpen] = useState(true);
   const [teamOpen, setTeamOpen] = useState(true);
+  const [selectedRoom, setSelectedRoom] = useState("Room 1");
+  const [selectedChannel, setSelectedChannel] = useState("general-chat");
 
   const filteredUsers = users.filter((u) =>
     u.username.toLowerCase().includes(searchQuery.toLowerCase())
@@ -57,9 +59,23 @@ export function LeftSidebar({ users, myUser, onClose }: LeftSidebarProps) {
           </button>
           {roomsOpen && (
             <div className="space-y-0.5 ml-1">
-              <NavItem icon={Monitor} label="Room 1" active />
-              <NavItem icon={Monitor} label="Room 2" />
-              <button className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:text-primary/80 transition-colors">
+              <NavItem
+                icon={Monitor}
+                label="Room 1"
+                active={selectedRoom === "Room 1"}
+                onClick={() => setSelectedRoom("Room 1")}
+              />
+              <NavItem
+                icon={Monitor}
+                label="Room 2"
+                active={selectedRoom === "Room 2"}
+                onClick={() => setSelectedRoom("Room 2")}
+              />
+              <button
+                type="button"
+                onClick={() => setSelectedRoom("New Call")}
+                className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
                 <Monitor className="w-3.5 h-3.5" />
                 Start New Call
               </button>
@@ -78,9 +94,24 @@ export function LeftSidebar({ users, myUser, onClose }: LeftSidebarProps) {
           </button>
           {channelsOpen && (
             <div className="space-y-0.5 ml-1">
-              <NavItem icon={MessageSquare} label="Threads" />
-              <NavItem icon={Hash} label="general-chat" />
-              <NavItem icon={Hash} label="announcements" />
+              <NavItem
+                icon={MessageSquare}
+                label="Threads"
+                active={selectedChannel === "Threads"}
+                onClick={() => setSelectedChannel("Threads")}
+              />
+              <NavItem
+                icon={Hash}
+                label="general-chat"
+                active={selectedChannel === "general-chat"}
+                onClick={() => setSelectedChannel("general-chat")}
+              />
+              <NavItem
+                icon={Hash}
+                label="announcements"
+                active={selectedChannel === "announcements"}
+                onClick={() => setSelectedChannel("announcements")}
+              />
             </div>
           )}
         </div>
@@ -133,9 +164,11 @@ export function LeftSidebar({ users, myUser, onClose }: LeftSidebarProps) {
   );
 }
 
-function NavItem({ icon: Icon, label, badge, active }: { icon: any; label: string; badge?: number; active?: boolean }) {
+function NavItem({ icon: Icon, label, badge, active, onClick }: { icon: any; label: string; badge?: number; active?: boolean; onClick?: () => void }) {
   return (
     <button
+      type="button"
+      onClick={onClick}
       className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors ${
         active ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-muted"
       }`}

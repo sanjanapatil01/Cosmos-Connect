@@ -5,12 +5,11 @@ import { ChatMessage, CosmosUser } from "@/lib/cosmos";
 import {
   Send, X, Smile, Paperclip, Bold, Italic, Code, Link2, ImagePlus, AtSign,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface ChatPanelProps {
   nearbyUsers: CosmosUser[];
   messages: ChatMessage[];
-  onSendMessage: (text: string, imageUrl?: string) => void;
+  onSendMessage: (text: string, imageUrl?: string) => Promise<void>;
   myUserId: string;
   onClose: () => void;
 }
@@ -23,6 +22,7 @@ export function ChatPanel({ nearbyUsers, messages, onSendMessage, myUserId, onCl
   const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const backendUrl = import.meta.env.VITE_CHAT_API_URL ?? "http://localhost:4000";
 
   const nearbyIds = new Set([myUserId, ...nearbyUsers.map((u) => u.id)]);
   const visibleMessages = messages.filter((m) => nearbyIds.has(m.senderId));
@@ -31,10 +31,10 @@ export function ChatPanel({ nearbyUsers, messages, onSendMessage, myUserId, onCl
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [visibleMessages.length]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim()) {
-      onSendMessage(text.trim());
+      await onSendMessage(text.trim());
       setText("");
       setShowEmoji(false);
     }
@@ -45,15 +45,19 @@ export function ChatPanel({ nearbyUsers, messages, onSendMessage, myUserId, onCl
     if (!file) return;
     setUploading(true);
     try {
-      const fileName = `${Date.now()}-${file.name}`;
-      const { data, error } = await supabase.storage
-        .from("chat-attachments")
-        .upload(fileName, file);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage
-        .from("chat-attachments")
-        .getPublicUrl(data.path);
-      onSendMessage(`📎 Shared an image`, urlData.publicUrl);
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`${backendUrl}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Upload failed");
+      }
+
+      await onSendMessage(`📎 Shared an image`, payload.url);
     } catch (err) {
       console.error("Upload failed:", err);
     } finally {

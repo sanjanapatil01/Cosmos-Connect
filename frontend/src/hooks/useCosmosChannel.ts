@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { CosmosUser, ChatMessage, CosmosAction, randomSpawn, randomColor } from "@/lib/cosmos";
 
 interface UseCosmosChannelOptions {
   username: string;
 }
+
+type ServerEvent =
+  | { type: "presence"; users: CosmosUser[] }
+  | { type: "chat"; payload: ChatMessage }
+  | { type: "action"; payload: CosmosAction }
+  | { type: "error"; message: string };
 
 export function useCosmosChannel({ username }: UseCosmosChannelOptions) {
   const [myUser, setMyUser] = useState<CosmosUser | null>(null);
@@ -16,7 +20,7 @@ export function useCosmosChannel({ username }: UseCosmosChannelOptions) {
   const [userReactions, setUserReactions] = useState<Map<string, { emoji: string; ts: number }>>(new Map());
   const [isRecording, setIsRecording] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
   const myUserRef = useRef<CosmosUser | null>(null);
 
   useEffect(() => {
@@ -29,98 +33,102 @@ export function useCosmosChannel({ username }: UseCosmosChannelOptions) {
       y: spawn.y,
       color: randomColor(),
     };
+
     setMyUser(user);
     myUserRef.current = user;
 
-    const channel = supabase.channel("cosmos-world", {
-      config: { presence: { key: userId } },
+    const serverUrl = import.meta.env.VITE_CHAT_SERVER_URL ?? "ws://localhost:4000";
+    const socket = new WebSocket(serverUrl);
+    socketRef.current = socket;
+
+    const sendEvent = (event: unknown) => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(event));
+      }
+    };
+
+    socket.addEventListener("open", () => {
+      sendEvent({ type: "join", user });
     });
 
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        const users: CosmosUser[] = [];
-        Object.entries(state).forEach(([key, presences]) => {
-          if (key !== userId && presences.length > 0) {
-            const p = presences[0] as any;
-            users.push({
-              id: key,
-              username: p.username,
-              x: p.x,
-              y: p.y,
-              color: p.color,
-            });
-          }
-        });
-        setOtherUsers(users);
-      })
-      .on("broadcast", { event: "chat" }, ({ payload }) => {
-        const msg = payload as ChatMessage;
-        setMessages((prev) => [...prev.slice(-99), msg]);
-      })
-      .on("broadcast", { event: "action" }, ({ payload }) => {
-        const action = payload as CosmosAction;
-        setActions((prev) => [...prev.slice(-49), action]);
+    socket.addEventListener("message", (event) => {
+      try {
+        const data = JSON.parse(event.data.toString()) as ServerEvent;
 
-        if (action.type === "hand_raise") {
-          setHandRaisedUsers((prev) => new Set(prev).add(action.userId));
-        } else if (action.type === "hand_lower") {
-          setHandRaisedUsers((prev) => {
-            const next = new Set(prev);
-            next.delete(action.userId);
-            return next;
-          });
-        } else if (action.type === "reaction") {
-          setUserReactions((prev) => {
-            const next = new Map(prev);
-            next.set(action.userId, { emoji: action.emoji || "👍", ts: action.timestamp });
-            return next;
-          });
-          // Clear reaction after 3 seconds
-          setTimeout(() => {
-            setUserReactions((prev) => {
-              const next = new Map(prev);
-              if (next.get(action.userId)?.ts === action.timestamp) {
-                next.delete(action.userId);
-              }
+        if (data.type === "presence") {
+          const users = data.users.filter((u) => u.id !== userId);
+          setOtherUsers(users);
+          return;
+        }
+
+        if (data.type === "chat") {
+          if (!data.payload || !data.payload.id) return;
+          setMessages((prev) => [...prev.slice(-99), data.payload]);
+          return;
+        }
+
+        if (data.type === "action") {
+          const action = data.payload;
+          if (!action || !action.type) return;
+
+          setActions((prev) => [...prev.slice(-49), action]);
+
+          if (action.type === "hand_raise") {
+            setHandRaisedUsers((prev) => new Set(prev).add(action.userId));
+          } else if (action.type === "hand_lower") {
+            setHandRaisedUsers((prev) => {
+              const next = new Set(prev);
+              next.delete(action.userId);
               return next;
             });
-          }, 3000);
+          } else if (action.type === "reaction") {
+            setUserReactions((prev) => {
+              const next = new Map(prev);
+              next.set(action.userId, { emoji: action.emoji || "👍", ts: action.timestamp });
+              return next;
+            });
+            setTimeout(() => {
+              setUserReactions((prev) => {
+                const next = new Map(prev);
+                if (next.get(action.userId)?.ts === action.timestamp) {
+                  next.delete(action.userId);
+                }
+                return next;
+              });
+            }, 3000);
+          }
+          return;
         }
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({
-            username: user.username,
-            x: user.x,
-            y: user.y,
-            color: user.color,
-          });
-        }
-      });
+      } catch (error) {
+        console.error("Invalid websocket message:", error);
+      }
+    });
 
-    channelRef.current = channel;
+    socket.addEventListener("close", () => {
+      setOtherUsers([]);
+    });
 
     return () => {
-      channel.unsubscribe();
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "leave", userId }));
+      }
+      socket.close();
     };
   }, [username]);
 
   const updatePosition = useCallback((x: number, y: number) => {
-    if (!channelRef.current || !myUserRef.current) return;
+    if (!socketRef.current || !myUserRef.current) return;
     const updated = { ...myUserRef.current, x, y };
     myUserRef.current = updated;
     setMyUser(updated);
-    channelRef.current.track({
-      username: updated.username,
-      x: updated.x,
-      y: updated.y,
-      color: updated.color,
-    });
+
+    if (socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "position", user: updated }));
+    }
   }, []);
 
   const sendMessage = useCallback((text: string, imageUrl?: string) => {
-    if (!channelRef.current || !myUserRef.current) return;
+    if (!socketRef.current || !myUserRef.current) return;
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
       senderId: myUserRef.current.id,
@@ -129,16 +137,18 @@ export function useCosmosChannel({ username }: UseCosmosChannelOptions) {
       timestamp: Date.now(),
       imageUrl,
     };
-    channelRef.current.send({
-      type: "broadcast",
-      event: "chat",
-      payload: msg,
-    });
+
+    if (socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "chat", payload: msg }));
+    } else {
+      console.warn("WebSocket is not connected. Message will be shown locally.");
+    }
+
     setMessages((prev) => [...prev.slice(-99), msg]);
   }, []);
 
   const broadcastAction = useCallback((actionType: CosmosAction["type"], emoji?: string) => {
-    if (!channelRef.current || !myUserRef.current) return;
+    if (!socketRef.current || !myUserRef.current) return;
     const action: CosmosAction = {
       type: actionType,
       userId: myUserRef.current.id,
@@ -146,12 +156,11 @@ export function useCosmosChannel({ username }: UseCosmosChannelOptions) {
       emoji,
       timestamp: Date.now(),
     };
-    channelRef.current.send({
-      type: "broadcast",
-      event: "action",
-      payload: action,
-    });
-    // Apply locally too
+
+    if (socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "action", payload: action }));
+    }
+
     if (actionType === "hand_raise") {
       setHandRaisedUsers((prev) => new Set(prev).add(myUserRef.current!.id));
     } else if (actionType === "hand_lower") {
