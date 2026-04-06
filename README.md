@@ -104,6 +104,7 @@ Client → WebSocket → Server → Broadcast → Client Render → Proximity De
 Each user has an interaction radius (e.g., 100px).
 
 Distance is calculated using:
+Euclidean Distance Formula 
 
 distance = sqrt((x2 - x1)^2 + (y2 - y1)^2)
 
