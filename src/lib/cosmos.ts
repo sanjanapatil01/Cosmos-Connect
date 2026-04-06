@@ -17,6 +17,9 @@ export interface CosmosUser {
   x: number;
   y: number;
   color: number;
+  handRaised?: boolean;
+  reaction?: string;
+  reactionTs?: number;
 }
 
 export interface ChatMessage {
@@ -26,6 +29,14 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   imageUrl?: string;
+}
+
+export interface CosmosAction {
+  type: "hand_raise" | "hand_lower" | "reaction" | "screen_share_start" | "screen_share_stop";
+  userId: string;
+  username: string;
+  emoji?: string;
+  timestamp: number;
 }
 
 /** Euclidean distance between two points */
@@ -54,14 +65,8 @@ export function randomSpawn(): { x: number; y: number } {
 /** Generate a random avatar color */
 export function randomColor(): number {
   const colors = [
-    0x8b5cf6, // purple
-    0x06b6d4, // cyan
-    0xf59e0b, // amber
-    0xef4444, // red
-    0x10b981, // emerald
-    0xec4899, // pink
-    0x3b82f6, // blue
-    0xf97316, // orange
+    0x8b5cf6, 0x06b6d4, 0xf59e0b, 0xef4444,
+    0x10b981, 0xec4899, 0x3b82f6, 0xf97316,
   ];
   return colors[Math.floor(Math.random() * colors.length)];
 }

@@ -19,7 +19,14 @@ export default function Index() {
 }
 
 function CosmosWorld({ username }: { username: string }) {
-  const { myUser, otherUsers, messages, updatePosition, sendMessage } = useCosmosChannel({ username });
+  const {
+    myUser, otherUsers, messages,
+    handRaisedUsers, userReactions,
+    isRecording, isScreenSharing,
+    updatePosition, sendMessage,
+    toggleHandRaise, sendReaction,
+    toggleRecording, toggleScreenShare,
+  } = useCosmosChannel({ username });
   const [chatOpen, setChatOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -28,7 +35,6 @@ function CosmosWorld({ username }: { username: string }) {
     return getNearbyUsers(myUser, otherUsers);
   }, [myUser, otherUsers]);
 
-  // Auto-open chat when someone is nearby
   const hasNearby = nearbyUsers.length > 0;
 
   if (!myUser) {
@@ -46,24 +52,22 @@ function CosmosWorld({ username }: { username: string }) {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background">
-      {/* Top navigation */}
       <TopNavbar totalUsers={otherUsers.length + 1} />
 
-      {/* Canvas area (between top navbar and bottom toolbar) */}
       <div className="absolute top-12 bottom-14 left-0 right-0">
-        <CosmosCanvas myUser={myUser} otherUsers={otherUsers} onMove={updatePosition} />
+        <CosmosCanvas
+          myUser={myUser}
+          otherUsers={otherUsers}
+          onMove={updatePosition}
+          handRaisedUsers={handRaisedUsers}
+          userReactions={userReactions}
+        />
       </div>
 
-      {/* Left sidebar */}
       {sidebarOpen && (
-        <LeftSidebar
-          users={otherUsers}
-          myUser={myUser}
-          onClose={() => setSidebarOpen(false)}
-        />
+        <LeftSidebar users={otherUsers} myUser={myUser} onClose={() => setSidebarOpen(false)} />
       )}
 
-      {/* Chat panel */}
       {showChat && (
         <ChatPanel
           nearbyUsers={nearbyUsers}
@@ -74,7 +78,6 @@ function CosmosWorld({ username }: { username: string }) {
         />
       )}
 
-      {/* Bottom toolbar */}
       <BottomToolbar
         onToggleChat={() => setChatOpen(!chatOpen)}
         chatOpen={showChat}
@@ -82,6 +85,13 @@ function CosmosWorld({ username }: { username: string }) {
         sidebarOpen={sidebarOpen}
         username={myUser.username}
         userColor={myUser.color}
+        onHandRaise={toggleHandRaise}
+        handRaised={handRaisedUsers.has(myUser.id)}
+        onReaction={sendReaction}
+        onRecord={toggleRecording}
+        isRecording={isRecording}
+        onScreenShare={toggleScreenShare}
+        isScreenSharing={isScreenSharing}
       />
     </div>
   );
