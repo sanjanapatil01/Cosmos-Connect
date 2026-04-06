@@ -282,6 +282,3 @@ Sanjana M Patil
 
 ---
 
-## License
-
-This project is created for assessment purposes.
